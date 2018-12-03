@@ -5,11 +5,16 @@
  */
 package guidefinitiva;
 
+import com.jcraft.jsch.Channel;
+import com.jcraft.jsch.ChannelSftp;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.Session;
 import java.awt.Image;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -25,6 +30,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import javax.swing.JOptionPane;
+import org.apache.commons.net.ftp.FTP;
+import org.apache.commons.net.ftp.FTPClient;
 
 /**
  *
@@ -35,10 +42,15 @@ public class NuevoProducto extends javax.swing.JFrame {
 public static String hola;
 static final String JDBC_DRIVER = "com.mysql.jdbc.Driver";  
 static final String DB_URL = "jdbc:mysql://35.240.82.235/productos";
-
+static File selectedfile = null;
    //  Database credentials
 static final String USER = "root";
 static final String PASS = "cazador12";
+static int vecespizza = 0;
+static int vecesbebida = 0;
+static int veceshamburgesa = 0;
+static int vecesotros = 0;
+static int vecesensalada = 0;
    
     /**
      * Creates new form NuevoProducto
@@ -229,9 +241,11 @@ jFileChooser1.setFileFilter(imageFilter);
           int result = jFileChooser1.showSaveDialog(null);
            //if the user click on save in Jfilechooser
           if(result == jFileChooser1.APPROVE_OPTION){
-              File selectedFile = jFileChooser1.getSelectedFile();
-            hola = selectedFile.getAbsolutePath();
-              jLabel1.setIcon(ResizeImage(hola));
+              selectedfile = jFileChooser1.getSelectedFile();
+             
+            hola = selectedfile.getAbsolutePath();
+            jLabel1.setIcon(ResizeImage(hola));
+            System.out.println(selectedfile.getPath());
 }else if(result == jFileChooser1.CANCEL_OPTION){
               System.out.println("No has selecionado nada");
           }
@@ -253,6 +267,7 @@ jFileChooser1.setRequestFocusEnabled(false);
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
         // TODO add your handling code here:
+    
         Connection conn = null;
    Statement stmt = null;
    String nombre = jTextField1.getText();
@@ -266,8 +281,46 @@ jFileChooser1.setRequestFocusEnabled(false);
    }
    int boberia = jComboBox1.getSelectedIndex();
    String categoria = jComboBox1.getItemAt(boberia);
+   switch (categoria){
+       case "Pizza":
+        File Cambio = new File(selectedfile.getParent(),"Pizza"+vecespizza+".jpg");
+        boolean success = selectedfile.renameTo(Cambio);
+           vecespizza++;
+           hola = Cambio.getAbsolutePath();
+           System.out.println(hola);
+           upload(hola);
+           break;
+       case "Hamburgesa":
+       File cambiohamburger = new File(selectedfile.getParent(),"Hamburgesa"+veceshamburgesa+".jpg"); 
+        boolean succesoham =  selectedfile.renameTo(cambiohamburger);
+           hola = cambiohamburger.getAbsolutePath();
+           veceshamburgesa++;
+            upload(hola);
+           break;
+       case "Bebida" : 
+           File cambiobebe = new File(selectedfile.getParent(),"bebida"+vecesbebida+".jpg"); 
+           selectedfile.renameTo(cambiobebe);
+           hola =  cambiobebe.getAbsolutePath();
+           vecesbebida++;
+           upload(hola);
+           break;
+       case "Ensalada":
+        File cambioensalada = new File(selectedfile.getParent(),"Ensalada"+vecesensalada+".jpg"); 
+           selectedfile.renameTo(cambioensalada);
+           hola = cambioensalada.getAbsolutePath();
+           vecesensalada++;
+            upload(hola);
+           break;
+       case "Otros":
+        File cambiootros = new File(selectedfile.getParent(),"Otros"+vecesotros+".jpg"); 
+           selectedfile.renameTo(cambiootros);
+           hola = cambiootros.getAbsolutePath();
+           vecesotros++;
+            upload(hola);
+           break;
+   }
+   
    String alergenos = jTextField5.getText();
-   FileInputStream fis1 = null;
     int stockini = 0;
     double precio = 0; 
    if(jTextField6.getText().contains("abcdefghijklmnopqrstuwxyz")){
@@ -276,12 +329,6 @@ jFileChooser1.setRequestFocusEnabled(false);
     }else{
         stockini = Integer.parseInt(jTextField6.getText());
    }
-    File imagen = new File(hola);
-    try {
-         fis1 = new FileInputStream (imagen);
-    } catch (FileNotFoundException ex) {
-        Logger.getLogger(NuevoProducto.class.getName()).log(Level.SEVERE, null, ex);
-    }
     if(jTextField3.getText().contains("abcdefghijklmnopqrstuwxyz")){
         JOptionPane.showMessageDialog(null, "No puedes seguir porque el stock esta mal puesto");
     }else{
@@ -298,16 +345,13 @@ jFileChooser1.setRequestFocusEnabled(false);
       //STEP 4: Execute a query
      
       stmt = conn.createStatement();
-      File file=new File(imagen.getAbsolutePath());
-      
-      FileInputStream fis=new FileInputStream(file);
-      PreparedStatement ps=conn.prepareStatement("INSERT INTO   Inventario (nombre,precio,categoria,alergenos,imagen,stock) values (?,?,?,?,?,?)");
+      PreparedStatement ps=conn.prepareStatement("INSERT INTO   Inventario (nombre,precio,categoria,alergenos,stock,Ingredientes) values (?,?,?,?,?,?)");
       ps.setString(1,nombre);
       ps.setDouble(2,precio);
       ps.setString(3,categoria);
       ps.setString(4,alergenos);
-      ps.setBinaryStream(5,fis,(int)imagen.length());
-      ps.setInt(6, stockini);
+      ps.setInt(5, stockini);
+      ps.setString(6, ingredientes);
       ps.executeUpdate();
      
       //STEP 6: Clean-up environment
@@ -383,11 +427,35 @@ jFileChooser1.setRequestFocusEnabled(false);
         this.pack();
         return image;
     }
+private void upload(String filename) {
+    
+    try {
+        JSch jsch = new JSch();
+        Session session = jsch.getSession("root", "35.240.82.235", 22);
+        session.setPassword("cazador12");
+
+        java.util.Properties config = new java.util.Properties();
+        config.put("StrictHostKeyChecking", "no");
+        session.setConfig(config);
+        session.connect();
+
+        Channel channel = session.openChannel("sftp");
+        channel.connect();
+        ChannelSftp channelSftp = (ChannelSftp) channel;
+        String workingDirectory = "/var/www/html/imagenes/";
+        channelSftp.cd(workingDirectory);
+        File f = new File(filename);
+        channelSftp.put(new FileInputStream(f), f.getName());
+        f.delete();
+    } catch (Exception ex) {
+        ex.printStackTrace();
+    }
+}     
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
-    private javax.swing.JComboBox<String> jComboBox1;
+    private static javax.swing.JComboBox<String> jComboBox1;
     private javax.swing.JInternalFrame jInternalFrame1;
     public javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;

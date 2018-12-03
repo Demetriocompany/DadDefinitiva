@@ -25,12 +25,14 @@ public class ObjetosComida {
     String categoria;
     String alergenos;
     String rutaImagen;
+    String Ingredientes;
     int stock;
-    ObjetosComida(String nombre,double precio,String categoria,String alergenos,int stock){
+    ObjetosComida(String nombre,double precio,String categoria,String alergenos,int stock,String Ingredientes){
         this.nombre = nombre;
         this.precio = precio;
         this.categoria = categoria;
         this.alergenos = alergenos;
         this.stock = stock;
+        this.Ingredientes = Ingredientes;
     }
 }
